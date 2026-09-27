@@ -32,6 +32,7 @@ from datetime import date, timedelta
 
 import numpy as np
 import streamlit as st
+from satquery.app.auth import send_otp, verify_otp, logout
 
 # Make the package importable when launched via `streamlit run` from any CWD.
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -845,6 +846,74 @@ def _acquire_from_map(bbox: Tuple[float, float, float, float], start: date, end:
     st.session_state.result_map = None
 
 
+# ---------------------------------------------------------------- authentication
+ss = st.session_state
+
+ss.setdefault("authenticated", False)
+ss.setdefault("otp_sent", False)
+ss.setdefault("auth_email", "")
+
+if not ss.authenticated:
+    st.title("🛰️ SatQuery AI")
+    st.subheader("Sign in to continue")
+
+    if not ss.otp_sent:
+        email = st.text_input(
+            "Email address",
+            placeholder="you@example.com"
+        )
+
+        if st.button("Send OTP", type="primary"):
+            if not email.strip():
+                st.error("Please enter your email address.")
+            else:
+                try:
+                    send_otp(email.strip())
+                    ss.auth_email = email.strip()
+                    ss.otp_sent = True
+                    st.success("OTP sent. Check your email.")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Unable to send OTP: {exc}")
+
+    else:
+        st.write(f"OTP sent to **{ss.auth_email}**")
+
+        otp = st.text_input(
+            "Enter 6-digit OTP",
+            max_chars=6
+        )
+
+        if st.button("Verify OTP", type="primary"):
+            if len(otp.strip()) != 6:
+                st.error("Please enter the 6-digit OTP.")
+            else:
+                try:
+                    response = verify_otp(
+                        ss.auth_email,
+                        otp.strip()
+                    )
+
+                    ss.authenticated = True
+                    ss.user = response.user
+                    ss.auth_session = response.session
+                    ss.otp_sent = False
+
+                    st.success("Login successful!")
+                    st.rerun()
+
+                except Exception as exc:
+                    st.error(f"Invalid or expired OTP: {exc}")
+
+        if st.button("Use a different email"):
+            ss.otp_sent = False
+            ss.auth_email = ""
+            st.rerun()
+
+    st.stop()
+
+
+# ---------------------------------------------------------------- session
 init_session()
 inject_theme_css()
 
