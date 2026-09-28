@@ -851,69 +851,83 @@ def _acquire_from_map(bbox: Tuple[float, float, float, float], start: date, end:
 ss = st.session_state
 
 ss.setdefault("authenticated", False)
-ss.setdefault("otp_sent", False)
 ss.setdefault("auth_email", "")
 
 if not ss.authenticated:
     st.title("🛰️ SatQuery AI")
     st.subheader("Sign in to continue")
 
-    if not ss.otp_sent:
-        email = st.text_input(
-            "Email address",
-            placeholder="you@example.com"
-        )
+    email = st.text_input(
+        "Email address",
+        placeholder="you@example.com"
+    )
 
-        if st.button("Send OTP", type="primary"):
-            if not email.strip():
-                st.error("Please enter your email address.")
+    password = st.text_input(
+        "Password",
+        type="password",
+        placeholder="At least 6 characters"
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Create account", type="primary"):
+            if not email.strip() or not password:
+                st.error("Please enter your email and password.")
+            elif len(password) < 6:
+                st.error("Password must be at least 6 characters.")
             else:
                 try:
-                    send_otp(email.strip())
+                    response = signup(
+                        email.strip(),
+                        password
+                    )
+
                     ss.auth_email = email.strip()
-                    ss.otp_sent = True
-                    st.success("OTP sent. Check your email.")
-                    st.rerun()
+
+                    if response.user and response.session:
+                        ss.authenticated = True
+                        ss.user = response.user
+                        ss.auth_session = response.session
+                        st.success("Account created and logged in!")
+                        st.rerun()
+                    else:
+                        st.success(
+                            "Account created! Check your email and confirm your email address, "
+                            "then sign in."
+                        )
+
                 except Exception as exc:
-                    st.error(f"Unable to send OTP: {exc}")
+                    st.error(f"Unable to create account: {exc}")
 
-    else:
-        st.write(f"OTP sent to **{ss.auth_email}**")
-
-        otp = st.text_input(
-            "Enter 6-digit OTP",
-            max_chars=6
-        )
-
-        if st.button("Verify OTP", type="primary"):
-            if len(otp.strip()) != 6:
-                st.error("Please enter the 6-digit OTP.")
+    with col2:
+        if st.button("Sign in"):
+            if not email.strip() or not password:
+                st.error("Please enter your email and password.")
             else:
                 try:
-                    response = verify_otp(
-                        ss.auth_email,
-                        otp.strip()
+                    response = login(
+                        email.strip(),
+                        password
                     )
 
                     ss.authenticated = True
                     ss.user = response.user
                     ss.auth_session = response.session
-                    ss.otp_sent = False
+                    ss.auth_email = email.strip()
 
                     st.success("Login successful!")
                     st.rerun()
 
                 except Exception as exc:
-                    st.error(f"Invalid or expired OTP: {exc}")
+                    st.error(f"Unable to sign in: {exc}")
 
-        if st.button("Use a different email"):
-            ss.otp_sent = False
-            ss.auth_email = ""
-            st.rerun()
+    st.info(
+        "New user? Create an account first. "
+        "You'll receive an email to confirm your address."
+    )
 
     st.stop()
-
-
 # ---------------------------------------------------------------- session
 init_session()
 inject_theme_css()
