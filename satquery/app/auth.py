@@ -28,24 +28,21 @@ def get_supabase():
     return create_client(url, key)
 
 
-def send_otp(email):
+def signup(email, password):
     supabase = get_supabase()
 
-    return supabase.auth.sign_in_with_otp({
+    return supabase.auth.sign_up({
         "email": email,
-        "options": {
-            "should_create_user": True
-        }
+        "password": password
     })
 
 
-def verify_otp(email, otp):
+def login(email, password):
     supabase = get_supabase()
 
-    return supabase.auth.verify_otp({
+    return supabase.auth.sign_in_with_password({
         "email": email,
-        "token": otp,
-        "type": "email"
+        "password": password
     })
 
 
